@@ -17,7 +17,7 @@ jobs:
           # Native runner per arch, so the bundled binaries can be smoke-tested
           # on the CPU they will actually run on.
           - arch: arm64
-            runner: macos-latest
+            runner: macos-15
             ffmpeg: arm64
           - arch: x64
             runner: macos-15-intel
