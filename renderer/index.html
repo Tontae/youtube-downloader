@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="th">
+  <head>
+    <meta charset="utf-8" />
+    <!-- No CSP meta tag: 'self' behaves inconsistently for file:// documents
+         and would risk blocking the local script below. The page loads nothing
+         but its own stylesheet and script. -->
+    <title>ดาวน์โหลดวิดีโอ YouTube</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <!-- Covers everything until the startup update check has answered. Visible
+         from the first paint so nothing can be clicked before then. -->
+    <div id="update-overlay" class="overlay">
+      <div class="overlay-box">
+        <div class="spinner"></div>
+        <p id="update-text" class="overlay-text">กำลังตรวจสอบและอัปเดต yt-dlp...</p>
+      </div>
+    </div>
+
+    <!-- Shown instead of the main view when cookies.txt is missing. -->
+    <section id="onboarding-view" class="app onboarding hidden">
+      <h1>ตั้งค่าครั้งแรก</h1>
+      <p class="onboarding-intro">
+        โปรแกรมต้องใช้ไฟล์คุกกี้จากบัญชี YouTube ของคุณเพื่อดาวน์โหลดวิดีโอ
+        ทำตาม 4 ขั้นตอนนี้ครั้งเดียว
+      </p>
+
+      <ol class="steps">
+        <li>
+          <p>ติดตั้งส่วนเสริมของเบราว์เซอร์ชื่อ "Get cookies.txt LOCALLY"</p>
+          <button id="open-extension-button" type="button" class="button">เปิดหน้าติดตั้ง extension</button>
+        </li>
+        <li>
+          <p>เข้าเว็บ youtube.com แล้วเข้าสู่ระบบด้วยบัญชีของตัวเอง</p>
+        </li>
+        <li>
+          <p>คลิกไอคอนส่วนเสริมที่เพิ่งติดตั้ง แล้วสั่ง export คุกกี้ของหน้านี้ จะได้ไฟล์ชื่อ cookies.txt</p>
+        </li>
+        <li>
+          <p>กดปุ่มด้านล่างนี้ แล้วเลือกไฟล์ cookies.txt ที่เพิ่งได้มา</p>
+          <button id="import-cookies-button" type="button" class="button button-primary">
+            เลือกไฟล์ cookies.txt
+          </button>
+        </li>
+      </ol>
+
+      <p id="onboarding-status" class="status"></p>
+    </section>
+
+    <main id="main-view" class="app hidden">
+      <h1>ดาวน์โหลดวิดีโอ YouTube</h1>
+
+      <label class="field">
+        <span class="field-label">ลิงก์วิดีโอ</span>
+        <input
+          id="url-input"
+          type="text"
+          placeholder="https://www.youtube.com/watch?v=..."
+          spellcheck="false"
+          autocomplete="off"
+        />
+      </label>
+
+      <button id="fetch-button" type="button" class="button">ดึงข้อมูล</button>
+
+      <p id="video-title" class="video-title"></p>
+
+      <label class="field">
+        <span class="field-label">ความละเอียด / ไฟล์เสียง</span>
+        <select id="format-select" disabled>
+          <option value="">— ยังไม่ได้ดึงข้อมูล —</option>
+        </select>
+      </label>
+
+      <button id="download-button" type="button" class="button button-primary" disabled>ดาวน์โหลด</button>
+
+      <div id="progress" class="progress hidden">
+        <div class="progress-track">
+          <div id="progress-bar" class="progress-bar"></div>
+        </div>
+        <p id="progress-text" class="progress-text">0%</p>
+      </div>
+
+      <p id="status" class="status"></p>
+
+      <!-- YouTube cookies expire every few weeks, so the import flow has to stay
+           reachable without the user hunting for the file in the folder. -->
+      <p class="cookie-note">
+        ถ้าดาวน์โหลดไม่ได้ ไฟล์คุกกี้อาจหมดอายุ
+        <button id="change-cookies-button" type="button" class="link-button">เปลี่ยนไฟล์คุกกี้</button>
+      </p>
+    </main>
+
+    <!-- Plain classic script, no bundler and no ES module (module scripts are
+         blocked by CORS on file:// URLs). -->
+    <script src="./renderer.js"></script>
+  </body>
+</html>

@@ -1,0 +1,60 @@
+{
+  "name": "yt-downloader",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Minimal Electron front-end for the bundled yt-dlp binary: paste a YouTube link, pick a resolution, download",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win --dir"
+  },
+  "build": {
+    "appId": "com.echoblitz.yt-downloader",
+    "productName": "yt-downloader",
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "dir",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "zip"
+        }
+      ],
+      "identity": "-",
+      "category": "public.app-category.utilities",
+      "hardenedRuntime": false
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "renderer/**/*",
+      "package.json",
+      "!cookies.txt",
+      "!test-output/**",
+      "!bin/**",
+      "!.gitignore",
+      "!*.bat",
+      "!dist/**"
+    ],
+    "extraResources": [
+      {
+        "from": "bin",
+        "to": "bin"
+      }
+    ]
+  },
+  "devDependencies": {
+    "electron": "^43.3.0",
+    "electron-builder": "^26.15.3"
+  }
+}

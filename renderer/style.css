@@ -1,0 +1,274 @@
+:root {
+  --bg: #1e1f24;
+  --surface: #282a31;
+  --border: #3a3d46;
+  --text: #e9eaee;
+  --muted: #9a9daa;
+  --accent: #d33;
+  --accent-hover: #e94b4b;
+  --ok: #4caf78;
+  --error: #ff6b6b;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 24px 20px 32px;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Segoe UI", "Leelawadee UI", Tahoma, sans-serif;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.app {
+  max-width: 400px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.hidden {
+  display: none;
+}
+
+h1 {
+  margin: 0 0 4px;
+  font-size: 18px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.field-label {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+input[type="text"],
+select {
+  width: 100%;
+  padding: 9px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 14px;
+}
+
+input[type="text"]:focus,
+select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+select:disabled {
+  color: var(--muted);
+}
+
+.button {
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.button:hover:not(:disabled) {
+  border-color: var(--muted);
+}
+
+.button-primary {
+  border-color: transparent;
+  background: var(--accent);
+  font-weight: 600;
+}
+
+.button-primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.video-title {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+  word-break: break-word;
+}
+
+.progress {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.progress.hidden {
+  display: none;
+}
+
+.progress-track {
+  height: 10px;
+  border-radius: 5px;
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.progress-bar {
+  width: 0;
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.15s linear;
+}
+
+.progress-text {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+  word-break: break-word;
+}
+
+.status {
+  margin: 0;
+  min-height: 22px;
+  font-size: 13px;
+  word-break: break-word;
+}
+
+.status.error {
+  color: var(--error);
+}
+
+.status.success {
+  color: var(--ok);
+}
+
+.status.busy {
+  color: var(--muted);
+}
+
+/* Startup update check: opaque and fixed, so nothing behind it can be reached. */
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: var(--bg);
+}
+
+.overlay.hidden {
+  display: none;
+}
+
+.overlay-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  text-align: center;
+}
+
+.overlay-text {
+  margin: 0;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.spinner {
+  width: 26px;
+  height: 26px;
+  border: 3px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.9s linear infinite;
+}
+
+.spinner.done {
+  animation: none;
+  border-top-color: var(--ok);
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.onboarding-intro {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.steps {
+  margin: 0;
+  padding-left: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.steps li {
+  padding-left: 2px;
+}
+
+.steps p {
+  margin: 0 0 8px;
+}
+
+.steps li:last-child p,
+.steps p:only-child {
+  margin-bottom: 0;
+}
+
+.steps .button {
+  width: 100%;
+  margin-top: 8px;
+}
+
+.cookie-note {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.link-button {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 12px;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.link-button:hover:not(:disabled) {
+  color: var(--accent-hover);
+}
+
+.link-button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}

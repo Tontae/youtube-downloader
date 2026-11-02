@@ -1,0 +1,69 @@
+name: Build macOS app
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Native runner per arch, so the bundled binaries can be smoke-tested
+          # on the CPU they will actually run on.
+          - arch: arm64
+            runner: macos-latest
+            ffmpeg: arm64
+          - arch: x64
+            runner: macos-15-intel
+            ffmpeg: amd64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      # bin/ is not committed (ffmpeg alone is over GitHub's 100 MB file limit),
+      # so the macOS binaries are fetched fresh on every build.
+      - name: Fetch yt-dlp and ffmpeg
+        run: |
+          mkdir -p bin
+          curl -fsSL -o bin/yt-dlp https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_macos
+          curl -fsSL -o ffmpeg.zip https://ffmpeg.martin-riedl.de/redirect/latest/macos/${{ matrix.ffmpeg }}/release/ffmpeg.zip
+          unzip -l ffmpeg.zip
+          unzip -o -j ffmpeg.zip '*ffmpeg' -d bin
+          rm ffmpeg.zip
+          chmod 755 bin/yt-dlp bin/ffmpeg
+          # Apple Silicon refuses to run unsigned code; ad-hoc is enough for that.
+          codesign --force -s - bin/yt-dlp bin/ffmpeg
+          otool -L bin/ffmpeg
+          bin/ffmpeg -hide_banner -version | head -1
+          bin/yt-dlp --version
+
+      - name: Package
+        run: npx electron-builder --mac zip --${{ matrix.arch }} --publish never
+
+      # The app depends on ELECTRON_RUN_AS_NODE to act as yt-dlp's JS runtime;
+      # fail the build if packaging ever disables it.
+      - name: Smoke test packaged app
+        run: |
+          APP=$(find dist -maxdepth 2 -name '*.app' | head -1)
+          codesign -dv "$APP/Contents/Resources/bin/ffmpeg"
+          ELECTRON_RUN_AS_NODE=1 "$APP/Contents/MacOS/yt-downloader" -e "console.log('node', process.versions.node)"
+          "$APP/Contents/Resources/bin/yt-dlp" --version
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: yt-downloader-mac-${{ matrix.arch }}
+          path: dist/*.zip
+          retention-days: 30
