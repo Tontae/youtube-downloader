@@ -630,6 +630,8 @@ ipcMain.handle('check-app-update', async () => {
 
 ipcMain.handle('open-release-page', () => shell.openExternal(RELEASES_PAGE_URL));
 
+ipcMain.handle('get-app-version', () => app.getVersion());
+
 /** Compares plain x.y.z versions; anything unparsable is never "newer". */
 function isNewerVersion(candidate, current) {
   const parse = (v) => (/^\d+(\.\d+)*$/.test(v) ? v.split('.').map(Number) : null);

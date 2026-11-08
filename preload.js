@@ -28,6 +28,8 @@ const bridge = {
 
   openReleasePage: () => ipcRenderer.invoke('open-release-page'),
 
+  getAppVersion: () => ipcRenderer.invoke('get-app-version'),
+
   /** Subscribes to the download lifecycle. Returns a function that unsubscribes again. */
   subscribeDownload: ({ onProgress, onComplete, onError }) => {
     const progressListener = (_event, payload) => {

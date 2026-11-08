@@ -330,6 +330,13 @@ refreshButtons();
 
 // The overlay is already visible in the markup, so the app is never interactive
 // before this finishes.
+window.ytBridge
+  .getAppVersion()
+  .then((version) => {
+    document.getElementById('app-version').textContent = `เวอร์ชัน ${version}`;
+  })
+  .catch((error) => console.error('could not read app version:', error));
+
 // Not awaited: a slow GitHub answer must never hold up the app.
 window.ytBridge
   .checkAppUpdate()

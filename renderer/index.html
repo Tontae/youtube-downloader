@@ -97,6 +97,10 @@
       </p>
     </main>
 
+    <!-- Outside both views so it shows on onboarding and the main screen alike;
+         it is what the user reads out when asked "which version do you have?". -->
+    <p id="app-version" class="app-version"></p>
+
     <!-- Plain classic script, no bundler and no ES module (module scripts are
          blocked by CORS on file:// URLs). -->
     <script src="./renderer.js"></script>

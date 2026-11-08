@@ -253,6 +253,15 @@ select:disabled {
   text-align: center;
 }
 
+.app-version {
+  position: fixed;
+  right: 10px;
+  bottom: 6px;
+  margin: 0;
+  font-size: 11px;
+  color: var(--muted);
+}
+
 .link-button {
   padding: 0;
   border: none;
