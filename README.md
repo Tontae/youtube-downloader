@@ -151,6 +151,17 @@ YouTube ไม่ให้โปรแกรมโหลดคลิปถ้า
 
 ---
 
+## อัปเดตเป็นเวอร์ชันใหม่
+
+ถ้าเปิดแอปแล้วเห็นข้อความ **"มีเวอร์ชันใหม่ ... กดเพื่อโหลด"** ด้านบน ให้กดแล้วโหลดไฟล์ให้ตรงกับเครื่อง (เหมือนตอนติดตั้งครั้งแรก) แล้วทำตามนี้ ไม่ต้องใส่คุกกี้ใหม่
+
+- **Windows:** ปิดแอปก่อน → แตกไฟล์ zip ใหม่ไปที่**โฟลเดอร์เดิม** (เช่น Documents) → ถ้าถามว่าจะแทนที่ไฟล์ไหม กด **Replace (แทนที่)**
+- **Mac:** ปิดแอปก่อน → ลากแอปใหม่ไปวางที่ **Applications** → ถ้าถาม กด **Replace (แทนที่)** → ทำ **ติดตั้งบน Mac ขั้น 2** (คำสั่งใน Terminal) อีกรอบ
+
+ไม่ต้องห่วงเรื่อง YouTube เปลี่ยนระบบ ตัวโหลด (yt-dlp) อัปเดตตัวเองทุกครั้งที่เปิดแอปอยู่แล้ว
+
+---
+
 ## ถอนการติดตั้ง
 
 ปิดแอป yt-downloader ก่อน คลิปที่โหลดไว้ใน **Downloads** ไม่หายไปไหน
@@ -185,4 +196,5 @@ YouTube ไม่ให้โปรแกรมโหลดคลิปถ้า
 แอป Electron ที่เรียก [yt-dlp](https://github.com/yt-dlp/yt-dlp) และ [ffmpeg](https://ffmpeg.org/) ซึ่ง bundle อยู่ใน `bin/` (ไม่ได้ commit ไว้)
 
 - Windows: วาง `yt-dlp.exe` และ `ffmpeg.exe` ใน `bin/` แล้ว `npm ci` → `npm start` หรือ `npm run dist` (ได้ `dist/win-unpacked/`)
-- macOS: build ผ่าน GitHub Actions (`.github/workflows/build-mac.yml`) ทั้ง arm64 และ x64 ไฟล์ zip อยู่ใน artifacts ของแต่ละ run
+- GitHub Actions (`.github/workflows/build-mac.yml`) build Windows, Mac arm64 และ Mac x64 ทุกครั้งที่ push `main` (ไฟล์อยู่ใน artifacts ของแต่ละ run)
+- ออกเวอร์ชันใหม่: แก้ `version` ใน `package.json` → commit → `git tag vX.Y.Z` → `git push origin main vX.Y.Z` แล้ว CI จะสร้าง Release ให้เอง แอปเวอร์ชันเก่าจะเห็นข้อความแจ้งเตือนตอนเปิด

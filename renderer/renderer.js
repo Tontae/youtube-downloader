@@ -330,6 +330,18 @@ refreshButtons();
 
 // The overlay is already visible in the markup, so the app is never interactive
 // before this finishes.
+// Not awaited: a slow GitHub answer must never hold up the app.
+window.ytBridge
+  .checkAppUpdate()
+  .then((result) => {
+    if (result && result.newer) {
+      document.getElementById('app-update-version').textContent = result.newer;
+      document.getElementById('app-update').classList.remove('hidden');
+    }
+  })
+  .catch((error) => console.error('app update check failed:', error));
+document.getElementById('app-update-button').addEventListener('click', () => window.ytBridge.openReleasePage());
+
 runStartupUpdateCheck()
   .then(() => showViewForCookieStatus())
   .catch((error) => {

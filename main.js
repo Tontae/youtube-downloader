@@ -488,12 +488,23 @@ function pickDistinctResolutions(formats) {
 }
 
 function isBetterFormat(candidate, current) {
+  // h264 needs no compatibility re-encode afterwards, which is by far the
+  // slowest step of a download, so it wins over a higher-bitrate VP9/AV1.
+  const candidateIsH264 = isH264(candidate);
+  const currentIsH264 = isH264(current);
+  if (candidateIsH264 !== currentIsH264) {
+    return candidateIsH264;
+  }
   const candidateIsMp4 = candidate.ext === 'mp4';
   const currentIsMp4 = current.ext === 'mp4';
   if (candidateIsMp4 !== currentIsMp4) {
     return candidateIsMp4;
   }
   return (Number(candidate.tbr) || 0) > (Number(current.tbr) || 0);
+}
+
+function isH264(format) {
+  return typeof format.vcodec === 'string' && format.vcodec.startsWith('avc1');
 }
 
 /** The renderer asks on load, and decides between the onboarding screen and the
@@ -591,6 +602,51 @@ ipcMain.handle('check-yt-dlp-update', async () => {
   return { ok: true, status: 'up-to-date' };
 });
 
+/**
+ * The app is ad-hoc signed, which rules out real auto-update on macOS, so this
+ * only tells the user a newer release exists and opens its page. Any failure
+ * (offline, rate limit) just means no notice.
+ */
+const RELEASES_API_URL = 'https://api.github.com/repos/Tontae/youtube-downloader/releases/latest';
+const RELEASES_PAGE_URL = 'https://github.com/Tontae/youtube-downloader/releases/latest';
+
+ipcMain.handle('check-app-update', async () => {
+  try {
+    const response = await fetch(RELEASES_API_URL, {
+      headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'yt-downloader' },
+      signal: AbortSignal.timeout(8000)
+    });
+    if (!response.ok) {
+      return { ok: true, newer: null };
+    }
+    const release = await response.json();
+    const latest = String(release.tag_name || '').replace(/^v/, '');
+    return { ok: true, newer: isNewerVersion(latest, app.getVersion()) ? latest : null };
+  } catch (error) {
+    console.error('[main] app update check failed:', describeError(error));
+    return { ok: true, newer: null };
+  }
+});
+
+ipcMain.handle('open-release-page', () => shell.openExternal(RELEASES_PAGE_URL));
+
+/** Compares plain x.y.z versions; anything unparsable is never "newer". */
+function isNewerVersion(candidate, current) {
+  const parse = (v) => (/^\d+(\.\d+)*$/.test(v) ? v.split('.').map(Number) : null);
+  const a = parse(candidate);
+  const b = parse(current);
+  if (!a || !b) {
+    return false;
+  }
+  for (let i = 0; i < Math.max(a.length, b.length); i++) {
+    const diff = (a[i] || 0) - (b[i] || 0);
+    if (diff !== 0) {
+      return diff > 0;
+    }
+  }
+  return false;
+}
+
 ipcMain.handle('fetch-formats', async (_event, rawUrl) => {
   const validated = validateUrl(rawUrl);
   if (!validated.ok) {
@@ -678,7 +734,8 @@ ipcMain.handle('start-download', async (_event, options) => {
   // best VBR setting for mp3 and is ignored by lossless wav.
   const formatArgs = audioFormat
     ? ['-f', 'bestaudio/best', '-x', '--audio-format', audioFormat, '--audio-quality', '0']
-    : ['-f', `${formatId}+bestaudio/best`, '--merge-output-format', 'mp4'];
+    : // m4a is AAC, so preferring it skips the audio half of the compatibility pass.
+      ['-f', `${formatId}+bestaudio[ext=m4a]/${formatId}+bestaudio/best`, '--merge-output-format', 'mp4'];
 
   const args = [
     ...formatArgs,
@@ -838,45 +895,29 @@ async function finalizeDownload(finalPath, outputDir) {
     // Written next to the original and renamed over it at the end, so the name
     // the user was told about never changes.
     const tempPath = `${finalPath}.tmp.mp4`;
-    const args = ['-y', '-i', finalPath];
-    if (needsVideo) {
-      // Many YouTube VP9 sources are 10-bit; without forcing 8-bit yuv420p, libx264
-      // would produce High10 profile output that Premiere/AE often refuse to open.
-      args.push('-c:v', 'libx264', '-crf', '18', '-preset', 'medium', '-pix_fmt', 'yuv420p');
-    } else {
-      args.push('-c:v', 'copy');
-    }
-    if (needsAudio) {
-      args.push('-c:a', 'aac', '-b:a', '192k');
-    } else {
-      args.push('-c:a', 'copy');
-    }
-    args.push(tempPath);
+    // Many YouTube VP9 sources are 10-bit; without forcing 8-bit yuv420p the
+    // encoder would produce High10 output that Premiere/AE often refuse to open.
+    const libx264 = ['-c:v', 'libx264', '-crf', '18', '-preset', 'medium', '-pix_fmt', 'yuv420p'];
+    const videoChoices = !needsVideo
+      ? [['-c:v', 'copy']]
+      : process.platform === 'darwin'
+        ? // The Mac's hardware encoder is several times faster than libx264. It has
+          // no CRF mode, so a bitrate is picked from the height; libx264 is the
+          // fallback for Macs (or VMs) where VideoToolbox will not start.
+          [['-c:v', 'h264_videotoolbox', '-b:v', videoToolboxBitrate(probe.stderr), '-pix_fmt', 'yuv420p'], libx264]
+        : [libx264];
+    const audioArgs = needsAudio ? ['-c:a', 'aac', '-b:a', '192k'] : ['-c:a', 'copy'];
 
-    const pass = await runFfmpeg(args, TRANSCODE_IDLE_TIMEOUT_MS, {
-      onStderrChunk: (chunk) => {
-        if (!totalSeconds) {
-          return;
-        }
-        const elapsed = parseTimestampSeconds(chunk, 'time=');
-        if (elapsed == null) {
-          return;
-        }
-        // Capped below 100 so the final "complete" message below is what the
-        // user sees reach 100, not this in-progress estimate.
-        const percent = Math.min(99, Math.round((elapsed / totalSeconds) * 100));
-        sendToRenderer('download-progress', {
-          percent,
-          detail: `กำลังแปลงไฟล์ให้เข้ากับโปรแกรมตัดต่อ... ${percent}%`
-        });
+    let pass;
+    for (const videoArgs of videoChoices) {
+      pass = await transcodePass([...['-y', '-i', finalPath], ...videoArgs, ...audioArgs, tempPath], totalSeconds);
+      if (pass.ok && pass.code === 0) {
+        break;
       }
-    });
-    if (!pass.ok || pass.code !== 0) {
-      console.error(
-        '[main] compatibility pass failed:',
-        pass.ok ? extractFfmpegError(pass.stderr) : pass.error
-      );
+      console.error(`[main] ${videoArgs[1]} pass failed:`, pass.ok ? extractFfmpegError(pass.stderr) : pass.error);
       removeIfPresent(tempPath);
+    }
+    if (!pass.ok || pass.code !== 0) {
       sendToRenderer('download-complete', {
         filePath: finalPath,
         note: 'แปลงไฟล์ให้เข้ากับโปรแกรมตัดต่อไม่สำเร็จ ไฟล์ที่ได้เป็นไฟล์ต้นฉบับ'
@@ -905,6 +946,36 @@ async function finalizeDownload(finalPath, outputDir) {
   } finally {
     activeDownload = null;
   }
+}
+
+/** Generous enough that the hardware encode does not visibly lose detail. */
+function videoToolboxBitrate(probeText) {
+  const match = /Video:.*?\b(\d{3,5})x(\d{3,5})\b/.exec(probeText || '');
+  const height = match ? Number(match[2]) : 1080;
+  if (height >= 2000) return '45M';
+  if (height >= 1400) return '24M';
+  return '12M';
+}
+
+function transcodePass(args, totalSeconds) {
+  return runFfmpeg(args, TRANSCODE_IDLE_TIMEOUT_MS, {
+    onStderrChunk: (chunk) => {
+      if (!totalSeconds) {
+        return;
+      }
+      const elapsed = parseTimestampSeconds(chunk, 'time=');
+      if (elapsed == null) {
+        return;
+      }
+      // Capped below 100 so the final "complete" message is what the user
+      // sees reach 100, not this in-progress estimate.
+      const percent = Math.min(99, Math.round((elapsed / totalSeconds) * 100));
+      sendToRenderer('download-progress', {
+        percent,
+        detail: `กำลังแปลงไฟล์ให้เข้ากับโปรแกรมตัดต่อ... ${percent}%`
+      });
+    }
+  });
 }
 
 /** Deletes a leftover temp file; a failure here is logged, never thrown. */

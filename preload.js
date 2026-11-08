@@ -23,6 +23,11 @@ const bridge = {
   /** Runs yt-dlp's self-update once at startup. Always resolves with a status. */
   checkYtDlpUpdate: () => ipcRenderer.invoke('check-yt-dlp-update'),
 
+  /** Resolves with { newer: 'x.y.z' } when GitHub has a newer release, else newer: null. */
+  checkAppUpdate: () => ipcRenderer.invoke('check-app-update'),
+
+  openReleasePage: () => ipcRenderer.invoke('open-release-page'),
+
   /** Subscribes to the download lifecycle. Returns a function that unsubscribes again. */
   subscribeDownload: ({ onProgress, onComplete, onError }) => {
     const progressListener = (_event, payload) => {

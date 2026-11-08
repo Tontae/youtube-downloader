@@ -1,6 +1,6 @@
 {
   "name": "yt-downloader",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "Minimal Electron front-end for the bundled yt-dlp binary: paste a YouTube link, pick a resolution, download",
   "main": "main.js",

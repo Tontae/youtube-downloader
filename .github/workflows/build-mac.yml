@@ -1,15 +1,20 @@
-name: Build macOS app
+name: Build
 
+# Every push to main builds all three apps as artifacts. Pushing a version tag
+# (git tag v0.2.0 && git push origin v0.2.0) also publishes them as a GitHub
+# Release, which is what the app's "new version" notice points at.
 on:
   workflow_dispatch:
   push:
     branches: [main]
+    tags: ['v*']
+    paths-ignore: ['README.md']
 
 permissions:
   contents: read
 
 jobs:
-  build:
+  mac:
     strategy:
       fail-fast: false
       matrix:
@@ -34,7 +39,7 @@ jobs:
       - run: npm ci
 
       # bin/ is not committed (ffmpeg alone is over GitHub's 100 MB file limit),
-      # so the macOS binaries are fetched fresh on every build.
+      # so the binaries are fetched fresh on every build.
       - name: Fetch yt-dlp and ffmpeg
         run: |
           mkdir -p bin
@@ -49,6 +54,13 @@ jobs:
           otool -L bin/ffmpeg
           bin/ffmpeg -hide_banner -version | head -1
           bin/yt-dlp --version
+          # The app's fast re-encode path needs this encoder compiled in.
+          bin/ffmpeg -hide_banner -encoders | grep h264_videotoolbox
+          # Informational only: CI VMs may lack the hardware, and the app falls
+          # back to libx264 when VideoToolbox will not start.
+          bin/ffmpeg -hide_banner -loglevel error -f lavfi -i testsrc=size=1280x720:rate=30 -t 2 \
+            -c:v h264_videotoolbox -b:v 12M -pix_fmt yuv420p -y "$RUNNER_TEMP/vt.mp4" \
+            && echo "VideoToolbox encode OK" || echo "VideoToolbox unavailable on this runner"
 
       - name: Package
         run: npx electron-builder --mac zip --${{ matrix.arch }} --publish never
@@ -62,8 +74,85 @@ jobs:
           ELECTRON_RUN_AS_NODE=1 "$APP/Contents/MacOS/yt-downloader" -e "console.log('node', process.versions.node)"
           "$APP/Contents/Resources/bin/yt-dlp" --version
 
+      - name: Rename zip
+        run: |
+          NAME=${{ matrix.arch == 'arm64' && 'AppleSilicon' || 'Intel' }}
+          mv dist/*.zip "dist/yt-downloader-mac-$NAME.zip"
+
       - uses: actions/upload-artifact@v4
         with:
           name: yt-downloader-mac-${{ matrix.arch }}
-          path: dist/*.zip
+          path: dist/yt-downloader-mac-*.zip
           retention-days: 30
+
+  windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      # Same ffmpeg build the app has been tested with locally (gyan.dev essentials).
+      - name: Fetch yt-dlp and ffmpeg
+        run: |
+          New-Item -ItemType Directory -Force bin | Out-Null
+          Invoke-WebRequest https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe -OutFile bin/yt-dlp.exe
+          Invoke-WebRequest https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip -OutFile ffmpeg.zip
+          Expand-Archive ffmpeg.zip -DestinationPath ffmpeg-x
+          Copy-Item (Get-ChildItem ffmpeg-x -Recurse -Filter ffmpeg.exe | Select-Object -First 1).FullName bin/
+          Remove-Item -Recurse -Force ffmpeg.zip, ffmpeg-x
+          bin/ffmpeg.exe -hide_banner -version | Select-Object -First 1
+          bin/yt-dlp.exe --version
+
+      - name: Package
+        run: npx electron-builder --win --dir --publish never
+
+      - name: Smoke test and zip
+        run: |
+          $env:ELECTRON_RUN_AS_NODE = '1'
+          dist/win-unpacked/yt-downloader.exe -e "console.log('node', process.versions.node)" | Write-Output
+          Remove-Item Env:ELECTRON_RUN_AS_NODE
+          dist/win-unpacked/resources/bin/yt-dlp.exe --version
+          Rename-Item dist/win-unpacked yt-downloader
+          Compress-Archive -Path dist/yt-downloader -DestinationPath dist/yt-downloader-windows.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: yt-downloader-windows
+          path: dist/yt-downloader-windows.zip
+          retention-days: 30
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [mac, windows]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: out
+          merge-multiple: true
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ls -la out
+          gh release create "$GITHUB_REF_NAME" out/*.zip --repo "$GITHUB_REPOSITORY" \
+            --title "yt-downloader ${GITHUB_REF_NAME#v}" \
+            --notes "โหลดวิดีโอ MP4 และเสียง MP3 / WAV จาก YouTube
+
+          - **Windows 10 / 11:** yt-downloader-windows.zip
+          - **Mac ชิป Apple M1–M4:** yt-downloader-mac-AppleSilicon.zip
+          - **Mac ชิป Intel:** yt-downloader-mac-Intel.zip
+
+          วิธีติดตั้งและใช้งาน ดูที่ [README](https://github.com/$GITHUB_REPOSITORY#readme)"
