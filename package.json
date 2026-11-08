@@ -11,6 +11,7 @@
   "build": {
     "appId": "com.echoblitz.yt-downloader",
     "productName": "yt-downloader",
+    "icon": "build/icon.png",
     "directories": {
       "output": "dist"
     },
